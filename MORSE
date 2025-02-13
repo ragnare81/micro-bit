@@ -1,0 +1,108 @@
+# micro-bit
+from microbit import *
+import radio
+import time
+
+# Initialisation du radio avec un canal spécifique (par exemple, canal 7)
+radio.config(channel=7)
+radio.on()
+
+# Dictionnaire pour le code Morse
+morse_code = {
+    "A": ".-",
+    "B": "-...",
+    "C": "-.-.",
+    "D": "-..",
+    "E": ".",
+    "F": "..-.",
+    "G": "--.",
+    "H": "....",
+    "I": "..",
+    "J": ".---",
+    "K": "-.-",
+    "L": ".-..",
+    "M": "--",
+    "N": "-.",
+    "O": "---",
+    "P": ".--.",
+    "Q": "--.-",
+    "R": ".-.",
+    "S": "...",
+    "T": "-",
+    "U": "..-",
+    "V": "...-",
+    "W": ".--",
+    "X": "-..-",
+    "Y": "-.--",
+    "Z": "--..",
+    "1": ".----",
+    "2": "..---",
+    "3": "...--",
+    "4": "....-",
+    "5": ".....",
+    "6": "-....",
+    "7": "--...",
+    "8": "---..",
+    "9": "----.",
+    "0": "-----"
+}
+
+# Variables
+current_morse = ""
+message = []
+last_press_time = 0
+press_interval = 0.3  # Intervalle entre les pressions pour détecter une double pression
+button_b_press_count = 0  # Compteur de pressions du bouton B
+press_timeout = 1000  # 1 seconde de délai avant de passer à la lettre suivante
+
+# Fonction pour ajouter une lettre au message
+def add_letter_to_message():
+    global current_morse
+    for letter, code in morse_code.items():
+        if current_morse == code:
+            message.append(letter)
+            display.scroll(letter)
+            current_morse = ""  # Réinitialiser la saisie pour la prochaine lettre
+            break
+
+# Fonction pour ajouter un espace entre les mots
+def add_space_to_message():
+    message.append(" ")  # Ajoute un espace entre les mots
+    display.scroll(" ")
+
+while True:
+    current_time = time.ticks_ms()
+    
+    # Si le bouton A est pressé (point)
+    if button_a.is_pressed():
+        current_morse += "."
+        display.show(".")
+        last_press_time = current_time
+        button_b_press_count = 0  # Réinitialiser le compteur de B
+        time.sleep(0.3)  # Temps d'attente pour éviter une pression longue
+
+    # Si le bouton B est pressé (tiret)
+    elif button_b.is_pressed():
+        current_morse += "-"
+        display.show("_")
+        last_press_time = current_time
+        button_b_press_count += 1  # Incrémente le compteur de pressions B
+        time.sleep(0.3)  # Temps d'attente pour éviter une pression longue
+
+    # Si une seconde s'est écoulée sans appuyer sur les boutons, changer de lettre
+    if current_time - last_press_time > press_timeout and current_morse != "":
+        add_letter_to_message()
+        time.sleep(0.3)  # Pause pour éviter l'enregistrement rapide
+
+    # Si le bouton B est pressé 5 fois, envoyer le message
+    if button_b.is_pressed() and button_b_press_count >= 5:
+        radio.send(''.join(message))  # Envoi du message par radio
+        message = []  # Réinitialiser le message
+        button_b_press_count = 0  # Réinitialiser le compteur de pressions B
+        time.sleep(0.3)
+
+    # Recevoir un message depuis l'autre micro:bit
+    received_message = radio.receive()
+    if received_message:
+        display.scroll(received_message)  # Affiche le message reçu
+        time.sleep(0.3)
